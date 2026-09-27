@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# vite
+.vite/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PWA generated files
+dist/sw.js
+dist/workbox-*.js
