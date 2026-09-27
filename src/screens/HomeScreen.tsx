@@ -152,11 +152,15 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
           <button
             className={`upload-tab ${uploadTab === "text" ? "upload-tab--active" : ""}`}
             onClick={async () => {
-              setUploadTab("text"); setUploadErrors([]); setUploadSuccess(null);
+              setUploadErrors([]); setUploadSuccess(null);
               try {
                 const text = await navigator.clipboard.readText();
-                if (text.trim().startsWith("{")) setClipboardPrompt(text);
+                if (text.trim().startsWith("{")) {
+                  setClipboardPrompt(text); // 팝업 먼저, 탭 전환은 팝업 이후
+                  return;
+                }
               } catch { /* 권한 없으면 조용히 무시 */ }
+              setUploadTab("text");
             }}
           >
             텍스트 붙여넣기
@@ -294,12 +298,11 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
             <h3>클립보드에 내용이 있습니다</h3>
             <p>붙여넣겠습니까?</p>
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => setClipboardPrompt(null)}>취소</button>
+              <button className="btn-cancel" onClick={() => { setClipboardPrompt(null); setUploadTab("text"); }}>취소</button>
               <button className="btn-confirm" onClick={() => {
                 setPasteText(clipboardPrompt);
                 setClipboardPrompt(null);
-                setUploadErrors([]);
-                setUploadSuccess(null);
+                setUploadTab("text");
               }}>붙여넣기</button>
             </div>
           </div>
