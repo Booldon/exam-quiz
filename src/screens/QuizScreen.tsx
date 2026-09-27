@@ -20,10 +20,13 @@ export function QuizScreen({ onResult, onHome }: Props) {
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [examSetMap, setExamSetMap] = useState<Map<string, ExamSet>>(new Map());
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [timerOn, setTimerOn] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [shortInput, setShortInput] = useState("");
   const [starred, setStarred] = useState(false);
   const submittingRef = useRef(false);
+  // 현재 활성 카운트다운의 절대 마감 시각(ms). 남은 시간 = deadlineRef - now
+  const deadlineRef = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -31,8 +34,26 @@ export function QuizScreen({ onResult, onHome }: Props) {
       if (!s) return;
       setSession(s);
       setExamSetMap(new Map(sets.map((e) => [e.key, e.data])));
+      if (s.remainingMs != null) {
+        // 저장된 남은 시간부터 다시 카운트다운 시작
+        deadlineRef.current = Date.now() + s.remainingMs;
+        setTimerOn(true);
+      }
     })();
   }, []);
+
+  /** 현재 남은 시간을 세션에 반영한 객체를 돌려준다(타이머 없으면 그대로) */
+  function withFreshRemaining(s: SessionRecord): SessionRecord {
+    if (deadlineRef.current == null) return s;
+    return { ...s, remainingMs: Math.max(0, deadlineRef.current - Date.now()) };
+  }
+
+  /** 남은 시간을 DB에 저장(중단·백그라운드 진입 시 호출) */
+  async function persistRemaining() {
+    if (deadlineRef.current == null) return;
+    const s = await db.sessions.get(1);
+    if (s) await db.sessions.put(withFreshRemaining(s));
+  }
 
   const currentKey = session?.questionKeys[session.currentIndex];
 
@@ -44,11 +65,11 @@ export function QuizScreen({ onResult, onHome }: Props) {
     db.questionRecords.get(currentKey).then((r) => setStarred(r?.starred ?? false));
   }, [currentKey]);
 
-  // timer
+  // 카운트다운: deadlineRef를 기준으로 남은 시간을 표시하고, 0이 되면 자동 제출
   useEffect(() => {
-    if (!session?.deadlineAt) return;
+    if (!timerOn) return;
     const tick = () => {
-      const left = session.deadlineAt! - Date.now();
+      const left = (deadlineRef.current ?? 0) - Date.now();
       if (left <= 0) {
         setTimeLeft(0);
         if (!submittingRef.current) handleSubmit();
@@ -59,12 +80,27 @@ export function QuizScreen({ onResult, onHome }: Props) {
     tick();
     const id = setInterval(tick, 500);
     return () => clearInterval(id);
-  }, [session?.deadlineAt]);
+  }, [timerOn]);
+
+  // 앱 백그라운드 진입/종료 또는 화면 이탈 시 남은 시간 저장(시간 정지)
+  useEffect(() => {
+    if (!timerOn) return;
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") persistRemaining();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", persistRemaining);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", persistRemaining);
+      persistRemaining(); // 화면 언마운트(홈 이동 등) 시에도 저장
+    };
+  }, [timerOn]);
 
   async function saveAnswer(key: string, value: number | string) {
     if (!session) return;
     const next = { ...session, answers: { ...session.answers, [key]: value } };
-    await db.sessions.put(next);
+    await db.sessions.put(withFreshRemaining(next));
     setSession(next);
   }
 
@@ -77,7 +113,7 @@ export function QuizScreen({ onResult, onHome }: Props) {
       if (q?.type === "short") await saveAnswer(currentKey, shortInput);
     }
     const next = { ...session, currentIndex: idx };
-    await db.sessions.put(next);
+    await db.sessions.put(withFreshRemaining(next));
     setSession(next);
   }
 

@@ -30,7 +30,12 @@ export interface SessionRecord {
   answers: Record<string, number | string>;
   currentIndex: number;
   startedAt: number;
-  deadlineAt?: number;
+  /**
+   * 실전 모드 남은 시간(ms). 풀이 화면을 벗어나거나 앱을 닫으면 남은 시간을 저장하고,
+   * 이어풀기로 재개하면 저장된 남은 시간부터 다시 카운트다운한다(중단 중에는 시간이 멈춤).
+   * 타이머가 없는 모드/시험이면 undefined.
+   */
+  remainingMs?: number;
 }
 
 /** 시험(examId) 단위 카테고리 태그. 기기 내에만 저장 */

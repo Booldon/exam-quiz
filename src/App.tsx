@@ -55,9 +55,9 @@ export default function App() {
       if (keys.length === 0) return;
     }
 
-    const deadlineAt =
+    const remainingMs =
       mode === "exam" && setRecord.data.timeLimitMin
-        ? Date.now() + setRecord.data.timeLimitMin * 60_000
+        ? setRecord.data.timeLimitMin * 60_000
         : undefined;
 
     const session: SessionRecord = {
@@ -69,7 +69,7 @@ export default function App() {
       answers: {},
       currentIndex: 0,
       startedAt: Date.now(),
-      deadlineAt,
+      remainingMs,
     };
 
     await db.sessions.put(session);
