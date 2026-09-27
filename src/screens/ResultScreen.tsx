@@ -6,17 +6,19 @@ interface Props {
   result: GradingResult;
   onHome: () => void;
   onRetry: () => void;
+  review?: boolean;
 }
 
-export function ResultScreen({ result, onHome, onRetry }: Props) {
+export function ResultScreen({ result, onHome, onRetry, review }: Props) {
   const { questions, totalScore, maxScore } = result;
   const correctCount = questions.filter((q) => q.isCorrect).length;
   const pct = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+  const hasWrong = correctCount < questions.length;
 
   return (
     <div className="screen result-screen">
       <header className="screen-header">
-        <h2>결과</h2>
+        <h2>{review ? "지난 결과" : "결과"}</h2>
       </header>
 
       <div className="result-score-card">
@@ -34,8 +36,10 @@ export function ResultScreen({ result, onHome, onRetry }: Props) {
       </div>
 
       <div className="result-actions">
-        <button className="btn-secondary" onClick={onRetry}>오답 다시 풀기</button>
-        <button className="btn-primary" onClick={onHome}>홈으로</button>
+        {hasWrong && (
+          <button className="btn-secondary" onClick={onRetry}>오답 다시 풀기</button>
+        )}
+        <button className="btn-primary" onClick={onHome}>{review ? "목록으로" : "홈으로"}</button>
       </div>
     </div>
   );

@@ -44,11 +44,29 @@ export interface CategoryRecord {
   category: string;
 }
 
+/**
+ * 채점 완료 이력. 문항 자체는 examSets에서 다시 찾아 재구성하므로,
+ * 여기에는 답안·점수·메타데이터만 저장한다(용량 절약).
+ */
+export interface AttemptRecord {
+  id?: number; // auto-increment
+  finishedAt: number;
+  mode: QuizMode;
+  title: string; // 표시용 제목 (예: "정보처리기사 · 2024-1회", "랜덤 20문제")
+  questionKeys: string[];
+  answers: Record<string, number | string>;
+  totalScore: number;
+  maxScore: number;
+  correctCount: number;
+  questionCount: number;
+}
+
 class AppDB extends Dexie {
   examSets!: EntityTable<ExamSetRecord, "key">;
   questionRecords!: EntityTable<QuestionRecord, "key">;
   sessions!: EntityTable<SessionRecord, "id">;
   categories!: EntityTable<CategoryRecord, "examId">;
+  attempts!: EntityTable<AttemptRecord, "id">;
 
   constructor() {
     super("exam-quiz-db");
@@ -59,6 +77,9 @@ class AppDB extends Dexie {
     });
     this.version(2).stores({
       categories: "examId, category",
+    });
+    this.version(3).stores({
+      attempts: "++id, finishedAt",
     });
   }
 }

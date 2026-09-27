@@ -21,7 +21,7 @@ export interface GradingResult {
 }
 
 export function gradeSession(
-  session: SessionRecord,
+  session: Pick<SessionRecord, "questionKeys" | "answers">,
   examSetMap: Map<string, ExamSet>
 ): GradingResult {
   const questions: GradedQuestion[] = [];

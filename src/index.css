@@ -282,18 +282,22 @@ body {
   cursor: not-allowed;
 }
 
-.btn-random {
-  display: block;
+.home-actions {
+  display: flex;
+  gap: 8px;
   margin: 12px 16px;
+}
+
+.btn-home-action {
+  flex: 1;
   background: var(--surface);
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   padding: 14px;
-  font-size: 1rem;
+  font-size: .95rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
-  width: calc(100% - 32px);
   text-align: center;
 }
 
@@ -514,6 +518,71 @@ body {
 }
 
 .empty-sub { font-size: .85rem; }
+
+/* ─── History Screen ────────────────────────────────────── */
+.btn-clear-all {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-list { padding: 8px 16px 32px; flex: 1; overflow-y: auto; }
+
+.history-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.history-card-main { flex: 1; min-width: 0; }
+
+.history-title {
+  font-weight: 600;
+  font-size: .95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-meta { font-size: .78rem; color: var(--text-muted); margin-top: 3px; }
+
+.history-score {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.history-score-num { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
+
+.history-score-max { font-size: .85rem; color: var(--text-muted); }
+
+.history-score-pct {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.history-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 2px;
+  flex-shrink: 0;
+}
 
 /* ─── Random Setup ──────────────────────────────────────── */
 .setup-screen .screen-header { padding-bottom: 0; }

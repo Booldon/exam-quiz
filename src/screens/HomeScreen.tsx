@@ -9,9 +9,10 @@ interface Props {
   onResume: () => void;
   hasSession: boolean;
   onRandomSetup: () => void;
+  onHistory: () => void;
 }
 
-export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup }: Props) {
+export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup, onHistory }: Props) {
   const [examSets, setExamSets] = useState<ExamSetRecord[]>([]);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
@@ -245,11 +246,16 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
         )}
       </div>
 
-      {examSets.length > 0 && (
-        <button className="btn-random" onClick={onRandomSetup}>
-          🎲 랜덤 N문제
+      <div className="home-actions">
+        {examSets.length > 0 && (
+          <button className="btn-home-action" onClick={onRandomSetup}>
+            🎲 랜덤 N문제
+          </button>
+        )}
+        <button className="btn-home-action" onClick={onHistory}>
+          📊 지난 결과
         </button>
-      )}
+      </div>
 
       <div className="exam-list">
         {sortedCategories.map((cat) => (

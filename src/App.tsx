@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
-import { db, type QuizMode, splitQuestionKey } from "./db";
+import { db, type QuizMode, type AttemptRecord, splitQuestionKey } from "./db";
 import type { SessionRecord } from "./db";
 import { questionKey } from "./schema/examSchema";
 import { HomeScreen } from "./screens/HomeScreen";
 import { RandomSetupScreen } from "./screens/RandomSetupScreen";
 import { QuizScreen } from "./screens/QuizScreen";
 import { ResultScreen } from "./screens/ResultScreen";
-import type { GradingResult } from "./lib/grading";
+import { HistoryScreen } from "./screens/HistoryScreen";
+import { gradeSession, type GradingResult } from "./lib/grading";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
 type Screen =
   | { name: "home" }
   | { name: "random-setup" }
   | { name: "quiz" }
-  | { name: "result"; result: GradingResult };
+  | { name: "result"; result: GradingResult; review?: boolean }
+  | { name: "history" };
 
 function useDarkMode() {
   useEffect(() => {
@@ -139,6 +141,20 @@ export default function App() {
     setScreen({ name: "quiz" });
   }
 
+  async function openAttempt(attempt: AttemptRecord) {
+    const sets = await db.examSets.toArray();
+    const map = new Map(sets.map((e) => [e.key, e.data]));
+    const result = gradeSession(
+      { questionKeys: attempt.questionKeys, answers: attempt.answers },
+      map
+    );
+    if (result.questions.length === 0) {
+      alert("이 결과의 문제 데이터가 삭제되어 상세를 볼 수 없습니다.");
+      return;
+    }
+    setScreen({ name: "result", result, review: true });
+  }
+
   return (
     <div className="app">
       {needRefresh && (
@@ -154,6 +170,14 @@ export default function App() {
           onResume={() => setScreen({ name: "quiz" })}
           onStartSession={startSession}
           onRandomSetup={() => setScreen({ name: "random-setup" })}
+          onHistory={() => setScreen({ name: "history" })}
+        />
+      )}
+
+      {screen.name === "history" && (
+        <HistoryScreen
+          onOpen={openAttempt}
+          onBack={() => setScreen({ name: "home" })}
         />
       )}
 
@@ -174,7 +198,8 @@ export default function App() {
       {screen.name === "result" && (
         <ResultScreen
           result={screen.result}
-          onHome={() => setScreen({ name: "home" })}
+          review={screen.review}
+          onHome={() => setScreen({ name: screen.review ? "history" : "home" })}
           onRetry={() => startRetryFromResult(screen.result)}
         />
       )}

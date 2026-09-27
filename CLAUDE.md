@@ -66,6 +66,7 @@ Dexie DB 이름 `exam-quiz-db`. 현재 스키마 버전 **2**.
 - `questionRecords`: 키 `examId/round/questionId`, 오답 횟수(`wrongCount`), 별표(`starred`), 갱신 시각 (v1)
 - `sessions`: 단일 레코드(id=1). 진행 중인 풀이 (모드, 문항 키 목록, 입력 답안, 현재 위치, `deadlineAt`) → 이어풀기용. 답안 입력마다 즉시 저장 (v1)
 - `categories`: 키 `examId` → `category` 문자열. 시험 단위 카테고리 태그, **기기 내에만 저장** (v2에서 추가)
+- `attempts`: 자동증가 `id`. 채점 완료 이력(제목·답안·점수·시각·모드). 문항 자체는 저장하지 않고 열람 시 examSets에서 재구성해 `gradeSession`으로 다시 채점 (v3에서 추가)
 
 ## 미결정 사항 (결정 완료)
 
@@ -106,6 +107,7 @@ Dexie DB 이름 `exam-quiz-db`. 현재 스키마 버전 **2**.
 - **시험별 JSON 내려받기**: 각 시험 카드 슬라이드에 버튼. 세트 원본을 `{examId}-{round}.json`으로 저장 (기존 전역 백업 아이콘은 제거)
 - **카테고리 태그** (`categories` 테이블): 시험(examId) 단위. 홈 화면을 `카테고리 → 시험 → 회차` 계층으로 그룹핑, "미분류"는 항상 마지막. 시험 슬라이드의 "카테고리 설정" 모달에서 지정(기존 카테고리 칩으로 빠른 선택)
 - **카테고리별 랜덤 출제**: 랜덤 설정 화면에서 출제 범위(전체/카테고리) 칩 선택. `startRandom(n, category)`
+- **채점 이력(지난 결과)**: 채점 시 `attempts`에 저장. 홈 "📊 지난 결과" → `HistoryScreen`에서 목록(제목·날짜·점수) 확인, 항목을 열면 `gradeSession`으로 재구성해 `ResultScreen`을 열람 모드(`review`)로 표시. 문제 데이터가 삭제된 이력은 상세 열람 불가(점수만 목록에 남음)
 
 ## 배포 (완료)
 

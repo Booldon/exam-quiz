@@ -140,6 +140,28 @@ export function QuizScreen({ onResult, onHome }: Props) {
         updatedAt: Date.now(),
       });
     }
+    // 채점 이력 저장
+    let title: string;
+    if (fresh.mode === "random") {
+      title = `랜덤 ${result.questions.length}문제`;
+    } else {
+      const set = examSetMap.get(`${fresh.examId}/${fresh.round}`);
+      const name = set?.examName ?? fresh.examId;
+      const prefix = fresh.mode === "retry" ? "[복습] " : "";
+      title = `${prefix}${name} · ${fresh.round}`;
+    }
+    await db.attempts.add({
+      finishedAt: Date.now(),
+      mode: fresh.mode,
+      title,
+      questionKeys: fresh.questionKeys,
+      answers: fresh.answers,
+      totalScore: result.totalScore,
+      maxScore: result.maxScore,
+      correctCount: result.questions.filter((g) => g.isCorrect).length,
+      questionCount: result.questions.length,
+    });
+
     await db.sessions.delete(1);
     onResult(result);
   }
