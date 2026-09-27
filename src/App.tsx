@@ -199,7 +199,7 @@ export default function App() {
         <ResultScreen
           result={screen.result}
           review={screen.review}
-          onHome={() => setScreen({ name: screen.review ? "history" : "home" })}
+          onHome={() => setScreen(screen.review ? { name: "history" } : { name: "home" })}
           onRetry={() => startRetryFromResult(screen.result)}
         />
       )}
