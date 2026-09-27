@@ -17,6 +17,7 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
   const [retryCounts, setRetryCounts] = useState<Record<string, number>>({});
   const [uploadTab, setUploadTab] = useState<"file" | "text">("file");
   const [pasteText, setPasteText] = useState("");
+  const [clipboardPrompt, setClipboardPrompt] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadData() {
@@ -154,7 +155,7 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
               setUploadTab("text"); setUploadErrors([]); setUploadSuccess(null);
               try {
                 const text = await navigator.clipboard.readText();
-                if (text.trim().startsWith("{")) setPasteText(text);
+                if (text.trim().startsWith("{")) setClipboardPrompt(text);
               } catch { /* 권한 없으면 조용히 무시 */ }
             }}
           >
@@ -192,7 +193,8 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
                   onClick={async () => {
                     try {
                       const text = await navigator.clipboard.readText();
-                      if (text.trim()) { setPasteText(text); setUploadErrors([]); setUploadSuccess(null); }
+                      if (text.trim().startsWith("{")) setClipboardPrompt(text);
+                      else if (text.trim()) { setPasteText(text); setUploadErrors([]); setUploadSuccess(null); }
                     } catch {
                       alert("클립보드 접근 권한이 필요합니다.");
                     }
@@ -285,6 +287,24 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
           </div>
         ))}
       </div>
+
+      {clipboardPrompt && (
+        <div className="modal-overlay" onClick={() => setClipboardPrompt(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>클립보드에 내용이 있습니다</h3>
+            <p>붙여넣겠습니까?</p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setClipboardPrompt(null)}>취소</button>
+              <button className="btn-confirm" onClick={() => {
+                setPasteText(clipboardPrompt);
+                setClipboardPrompt(null);
+                setUploadErrors([]);
+                setUploadSuccess(null);
+              }}>붙여넣기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {examSets.length === 0 && (
         <div className="empty-state">
