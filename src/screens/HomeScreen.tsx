@@ -76,36 +76,14 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
     loadData();
   }
 
-  async function handleExport() {
-    const [sets, records] = await Promise.all([
-      db.examSets.toArray(),
-      db.questionRecords.toArray(),
-    ]);
-    const blob = new Blob(
-      [JSON.stringify({ version: 1, exportedAt: Date.now(), examSets: sets, questionRecords: records }, null, 2)],
-      { type: "application/json" }
-    );
+  function handleDownload(s: ExamSetRecord) {
+    const blob = new Blob([JSON.stringify(s.data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `exam-quiz-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `${s.examId}-${s.round}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }
-
-  async function handleImport(file: File) {
-    try {
-      const raw = JSON.parse(await file.text());
-      if (raw.version !== 1) throw new Error("지원하지 않는 백업 버전");
-      await db.transaction("rw", db.examSets, db.questionRecords, async () => {
-        for (const s of raw.examSets ?? []) await db.examSets.put(s);
-        for (const r of raw.questionRecords ?? []) await db.questionRecords.put(r);
-      });
-      setUploadSuccess("백업 복원 완료");
-      loadData();
-    } catch (e) {
-      setUploadErrors([(e as Error).message]);
-    }
   }
 
   const grouped = examSets.reduce<Record<string, ExamSetRecord[]>>((acc, s) => {
@@ -117,18 +95,6 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
     <div className="screen home-screen">
       <header className="app-header">
         <h1 className="app-title">기출 풀이</h1>
-        <div className="header-actions">
-          <button className="btn-icon" title="백업 내보내기" onClick={handleExport}>⬇</button>
-          <label className="btn-icon" title="백업 불러오기">
-            ⬆
-            <input
-              type="file"
-              accept=".json"
-              className="sr-only"
-              onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
-            />
-          </label>
-        </div>
       </header>
 
       {hasSession && (
@@ -262,6 +228,12 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
                     >
                       ↺ 오답·별표 다시 풀기
                       <span className="mode-count">{retryCounts[s.key] ?? 0}문항</span>
+                    </button>
+                    <button
+                      className="btn-mode btn-mode--retry"
+                      onClick={() => handleDownload(s)}
+                    >
+                      ⬇ JSON 내려받기
                     </button>
                     <button
                       className="btn-mode btn-mode--delete"
