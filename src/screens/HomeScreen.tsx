@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { db, type ExamSetRecord, type QuizMode } from "../db";
 import { parseExamSetFile } from "../schema/examSchema";
 
+const UNCATEGORIZED = "미분류";
+
 interface Props {
   onStartSession: (mode: QuizMode, examKey: string) => void;
   onResume: () => void;
@@ -18,11 +20,17 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
   const [uploadTab, setUploadTab] = useState<"file" | "text">("file");
   const [pasteText, setPasteText] = useState("");
   const [clipboardPrompt, setClipboardPrompt] = useState<string | null>(null);
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [categoryModalExamId, setCategoryModalExamId] = useState<string | null>(null);
+  const [categoryInput, setCategoryInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadData() {
     const sets = await db.examSets.orderBy("uploadedAt").reverse().toArray();
     setExamSets(sets);
+
+    const cats = await db.categories.toArray();
+    setCategoryMap(Object.fromEntries(cats.map((c) => [c.examId, c.category])));
 
     const counts: Record<string, number> = {};
     for (const s of sets) {
@@ -33,6 +41,18 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
       counts[s.key] = n;
     }
     setRetryCounts(counts);
+  }
+
+  async function handleSetCategory(examId: string, category: string) {
+    const trimmed = category.trim();
+    if (trimmed) {
+      await db.categories.put({ examId, category: trimmed });
+    } else {
+      await db.categories.delete(examId);
+    }
+    setCategoryModalExamId(null);
+    setCategoryInput("");
+    loadData();
   }
 
   useEffect(() => { loadData(); }, []);
@@ -73,6 +93,9 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
     const [examId, round] = key.split("/", 2);
     await db.examSets.delete(key);
     await db.questionRecords.where("examId").equals(examId).and((r) => r.round === round).delete();
+    // 이 시험(examId)의 남은 회차가 없으면 카테고리 태그도 정리
+    const remaining = await db.examSets.where("examId").equals(examId).count();
+    if (remaining === 0) await db.categories.delete(examId);
     loadData();
   }
 
@@ -86,10 +109,31 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
     URL.revokeObjectURL(url);
   }
 
-  const grouped = examSets.reduce<Record<string, ExamSetRecord[]>>((acc, s) => {
+  // examId 단위로 묶은 뒤, 카테고리별로 다시 묶는다
+  const byExamId = examSets.reduce<Record<string, ExamSetRecord[]>>((acc, s) => {
     (acc[s.examId] ??= []).push(s);
     return acc;
   }, {});
+
+  const byCategory = Object.entries(byExamId).reduce<Record<string, [string, ExamSetRecord[]][]>>(
+    (acc, [examId, rounds]) => {
+      const cat = categoryMap[examId] ?? UNCATEGORIZED;
+      (acc[cat] ??= []).push([examId, rounds]);
+      return acc;
+    },
+    {}
+  );
+
+  // 카테고리 정렬: 이름순, "미분류"는 항상 마지막
+  const sortedCategories = Object.keys(byCategory).sort((a, b) => {
+    if (a === UNCATEGORIZED) return 1;
+    if (b === UNCATEGORIZED) return -1;
+    return a.localeCompare(b, "ko");
+  });
+
+  const existingCategories = [...new Set(Object.values(categoryMap))].sort((a, b) =>
+    a.localeCompare(b, "ko")
+  );
 
   return (
     <div className="screen home-screen">
@@ -192,60 +236,75 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
       )}
 
       <div className="exam-list">
-        {Object.entries(grouped).map(([examId, rounds]) => (
-          <div key={examId} className="exam-group">
-            <h2 className="exam-group-title">{rounds[0].data.examName}</h2>
-            {rounds.map((s) => (
-              <div
-                key={s.key}
-                className={`exam-card ${selectedKey === s.key ? "exam-card--selected" : ""}`}
-                onClick={() => setSelectedKey(s.key === selectedKey ? null : s.key)}
-              >
-                <div className="exam-card-info">
-                  <span className="exam-round">{s.data.round}</span>
-                  <span className="exam-meta">
-                    {s.data.questions.length}문항
-                    {s.data.timeLimitMin && ` · ${s.data.timeLimitMin}분`}
-                  </span>
-                  {retryCounts[s.key] > 0 && (
-                    <span className="exam-retry-badge">{retryCounts[s.key]}개 복습</span>
-                  )}
-                </div>
+        {sortedCategories.map((cat) => (
+          <section key={cat} className="category-section">
+            <h2 className="category-title">{cat}</h2>
+            {byCategory[cat].map(([examId, rounds]) => (
+              <div key={examId} className="exam-group">
+                <h3 className="exam-group-title">{rounds[0].data.examName}</h3>
+                {rounds.map((s) => (
+                  <div
+                    key={s.key}
+                    className={`exam-card ${selectedKey === s.key ? "exam-card--selected" : ""}`}
+                    onClick={() => setSelectedKey(s.key === selectedKey ? null : s.key)}
+                  >
+                    <div className="exam-card-info">
+                      <span className="exam-round">{s.data.round}</span>
+                      <span className="exam-meta">
+                        {s.data.questions.length}문항
+                        {s.data.timeLimitMin && ` · ${s.data.timeLimitMin}분`}
+                      </span>
+                      {retryCounts[s.key] > 0 && (
+                        <span className="exam-retry-badge">{retryCounts[s.key]}개 복습</span>
+                      )}
+                    </div>
 
-                {selectedKey === s.key && (
-                  <div className="exam-card-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="btn-mode btn-mode--exam"
-                      onClick={() => onStartSession("exam", s.key)}
-                    >
-                      ▶ 실전 풀기
-                      {s.data.timeLimitMin && <span className="mode-time">{s.data.timeLimitMin}분</span>}
-                    </button>
-                    <button
-                      className="btn-mode btn-mode--retry"
-                      disabled={!retryCounts[s.key]}
-                      onClick={() => retryCounts[s.key] && onStartSession("retry", s.key)}
-                    >
-                      ↺ 오답·별표 다시 풀기
-                      <span className="mode-count">{retryCounts[s.key] ?? 0}문항</span>
-                    </button>
-                    <button
-                      className="btn-mode btn-mode--retry"
-                      onClick={() => handleDownload(s)}
-                    >
-                      ⬇ JSON 내려받기
-                    </button>
-                    <button
-                      className="btn-mode btn-mode--delete"
-                      onClick={() => handleDelete(s.key)}
-                    >
-                      삭제
-                    </button>
+                    {selectedKey === s.key && (
+                      <div className="exam-card-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn-mode btn-mode--exam"
+                          onClick={() => onStartSession("exam", s.key)}
+                        >
+                          ▶ 실전 풀기
+                          {s.data.timeLimitMin && <span className="mode-time">{s.data.timeLimitMin}분</span>}
+                        </button>
+                        <button
+                          className="btn-mode btn-mode--retry"
+                          disabled={!retryCounts[s.key]}
+                          onClick={() => retryCounts[s.key] && onStartSession("retry", s.key)}
+                        >
+                          ↺ 오답·별표 다시 풀기
+                          <span className="mode-count">{retryCounts[s.key] ?? 0}문항</span>
+                        </button>
+                        <button
+                          className="btn-mode btn-mode--retry"
+                          onClick={() => {
+                            setCategoryInput(categoryMap[examId] ?? "");
+                            setCategoryModalExamId(examId);
+                          }}
+                        >
+                          🏷 카테고리 설정
+                          {categoryMap[examId] && <span className="mode-count">{categoryMap[examId]}</span>}
+                        </button>
+                        <button
+                          className="btn-mode btn-mode--retry"
+                          onClick={() => handleDownload(s)}
+                        >
+                          ⬇ JSON 내려받기
+                        </button>
+                        <button
+                          className="btn-mode btn-mode--delete"
+                          onClick={() => handleDelete(s.key)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             ))}
-          </div>
+          </section>
         ))}
       </div>
 
@@ -269,6 +328,46 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
                 setUploadTab("text");
               }}>
                 가져오기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {categoryModalExamId && (
+        <div className="modal-overlay" onClick={() => setCategoryModalExamId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>카테고리 설정</h3>
+            <p>{byExamId[categoryModalExamId]?.[0]?.data.examName}</p>
+            <input
+              type="text"
+              className="short-input category-input"
+              value={categoryInput}
+              onChange={(e) => setCategoryInput(e.target.value)}
+              placeholder="예: 금융 자격증"
+              autoFocus
+            />
+            {existingCategories.length > 0 && (
+              <div className="category-chips">
+                {existingCategories.map((c) => (
+                  <button key={c} className="category-chip" onClick={() => setCategoryInput(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => handleSetCategory(categoryModalExamId, "")}
+              >
+                미분류로
+              </button>
+              <button
+                className="btn-confirm"
+                onClick={() => handleSetCategory(categoryModalExamId, categoryInput)}
+              >
+                저장
               </button>
             </div>
           </div>

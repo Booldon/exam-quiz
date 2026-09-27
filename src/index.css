@@ -377,16 +377,46 @@ body {
 
 .exam-list { padding: 0 16px 32px; flex: 1; }
 
-.exam-group { margin-bottom: 20px; }
+.category-section { margin-bottom: 28px; }
+
+.category-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+
+.exam-group { margin-bottom: 16px; }
 
 .exam-group-title {
   font-size: .8rem;
   font-weight: 700;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: .02em;
   margin-bottom: 8px;
   padding-left: 4px;
+}
+
+.category-input { margin: 12px 0 4px; }
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.category-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
 }
 
 .exam-card {

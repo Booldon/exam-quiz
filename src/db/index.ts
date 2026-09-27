@@ -33,10 +33,17 @@ export interface SessionRecord {
   deadlineAt?: number;
 }
 
+/** 시험(examId) 단위 카테고리 태그. 기기 내에만 저장 */
+export interface CategoryRecord {
+  examId: string;
+  category: string;
+}
+
 class AppDB extends Dexie {
   examSets!: EntityTable<ExamSetRecord, "key">;
   questionRecords!: EntityTable<QuestionRecord, "key">;
   sessions!: EntityTable<SessionRecord, "id">;
+  categories!: EntityTable<CategoryRecord, "examId">;
 
   constructor() {
     super("exam-quiz-db");
@@ -44,6 +51,9 @@ class AppDB extends Dexie {
       examSets: "key, examId, round, uploadedAt",
       questionRecords: "key, examId, round, questionId",
       sessions: "id",
+    });
+    this.version(2).stores({
+      categories: "examId, category",
     });
   }
 }
