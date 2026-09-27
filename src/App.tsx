@@ -76,10 +76,20 @@ export default function App() {
     setScreen({ name: "quiz" });
   }
 
-  async function startRandom(n: number) {
-    const allSets = await db.examSets.toArray();
+  async function startRandom(n: number, category: string | null) {
+    const [allSets, cats] = await Promise.all([
+      db.examSets.toArray(),
+      db.categories.toArray(),
+    ]);
+    const catMap = Object.fromEntries(cats.map((c) => [c.examId, c.category]));
+
+    // category가 지정되면 해당 카테고리(미분류 포함)의 시험만 대상으로 한다
+    const targetSets = category === null
+      ? allSets
+      : allSets.filter((s) => (catMap[s.examId] ?? "미분류") === category);
+
     const allKeys: string[] = [];
-    for (const s of allSets) {
+    for (const s of targetSets) {
       for (const q of s.data.questions) {
         allKeys.push(questionKey(s.data, q));
       }
