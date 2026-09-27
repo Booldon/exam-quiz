@@ -16,24 +16,20 @@ type Screen =
   | { name: "result"; result: GradingResult };
 
 function useDarkMode() {
-  const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored) return stored === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  }, [dark]);
-
-  return [dark, setDark] as const;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = (e: MediaQueryList | MediaQueryListEvent) =>
+      document.documentElement.setAttribute("data-theme", e.matches ? "dark" : "light");
+    apply(mq);
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 }
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: "home" });
   const [hasSession, setHasSession] = useState(false);
-  const [dark, setDark] = useDarkMode();
+  useDarkMode();
 
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
 
@@ -135,14 +131,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <button
-        className="theme-toggle"
-        onClick={() => setDark((d) => !d)}
-        title="다크/라이트 모드"
-      >
-        {dark ? "☀" : "☾"}
-      </button>
-
       {needRefresh && (
         <div className="pwa-update">
           앱 업데이트가 있습니다.{" "}
