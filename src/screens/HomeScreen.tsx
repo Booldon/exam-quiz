@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { db, type ExamSetRecord, type QuizMode } from "../db";
 import { parseExamSetFile } from "../schema/examSchema";
-import { questionKey } from "../schema/examSchema";
 
 interface Props {
   onStartSession: (mode: QuizMode, examKey: string) => void;
