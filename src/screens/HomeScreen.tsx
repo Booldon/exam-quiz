@@ -15,6 +15,8 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [retryCounts, setRetryCounts] = useState<Record<string, number>>({});
+  const [uploadTab, setUploadTab] = useState<"file" | "text">("file");
+  const [pasteText, setPasteText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadData() {
@@ -34,10 +36,7 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
 
   useEffect(() => { loadData(); }, []);
 
-  async function handleFile(file: File) {
-    setUploadErrors([]);
-    setUploadSuccess(null);
-    const text = await file.text();
+  async function saveExamText(text: string) {
     const result = parseExamSetFile(text);
     if (!result.ok) {
       setUploadErrors(result.errors);
@@ -51,8 +50,21 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
       data: result.data,
       uploadedAt: Date.now(),
     });
-    setUploadSuccess(`${result.data.examName} (${result.data.round}) — ${result.data.questions.length}문항 업로드 완료`);
+    setUploadSuccess(`${result.data.examName} (${result.data.round}) — ${result.data.questions.length}문항 등록 완료`);
+    setPasteText("");
     loadData();
+  }
+
+  async function handleFile(file: File) {
+    setUploadErrors([]);
+    setUploadSuccess(null);
+    await saveExamText(await file.text());
+  }
+
+  async function handlePaste() {
+    setUploadErrors([]);
+    setUploadSuccess(null);
+    await saveExamText(pasteText);
   }
 
   async function handleDelete(key: string) {
@@ -129,16 +141,54 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
       )}
 
       <div className="upload-area">
-        <button className="btn-upload" onClick={() => fileRef.current?.click()}>
-          + 문제 파일 업로드
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json"
-          className="sr-only"
-          onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        />
+        <div className="upload-tabs">
+          <button
+            className={`upload-tab ${uploadTab === "file" ? "upload-tab--active" : ""}`}
+            onClick={() => { setUploadTab("file"); setUploadErrors([]); setUploadSuccess(null); }}
+          >
+            파일 업로드
+          </button>
+          <button
+            className={`upload-tab ${uploadTab === "text" ? "upload-tab--active" : ""}`}
+            onClick={() => { setUploadTab("text"); setUploadErrors([]); setUploadSuccess(null); }}
+          >
+            텍스트 붙여넣기
+          </button>
+        </div>
+
+        {uploadTab === "file" ? (
+          <>
+            <button className="btn-upload" onClick={() => fileRef.current?.click()}>
+              + JSON 파일 선택
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json"
+              className="sr-only"
+              onChange={(e) => { e.target.files?.[0] && handleFile(e.target.files[0]); e.target.value = ""; }}
+            />
+          </>
+        ) : (
+          <div className="paste-area">
+            <textarea
+              className="paste-textarea"
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder="Claude가 생성한 JSON을 여기에 붙여넣으세요"
+              spellCheck={false}
+              autoCorrect="off"
+            />
+            <button
+              className="btn-upload"
+              disabled={!pasteText.trim()}
+              onClick={handlePaste}
+            >
+              등록
+            </button>
+          </div>
+        )}
+
         {uploadSuccess && <p className="upload-success">{uploadSuccess}</p>}
         {uploadErrors.length > 0 && (
           <ul className="upload-errors">
