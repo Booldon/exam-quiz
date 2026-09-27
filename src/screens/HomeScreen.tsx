@@ -151,16 +151,9 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
           </button>
           <button
             className={`upload-tab ${uploadTab === "text" ? "upload-tab--active" : ""}`}
-            onClick={async () => {
+            onClick={() => {
               setUploadErrors([]); setUploadSuccess(null);
-              try {
-                const text = await navigator.clipboard.readText();
-                if (text.trim().startsWith("{")) {
-                  setClipboardPrompt(text); // 팝업 먼저, 탭 전환은 팝업 이후
-                  return;
-                }
-              } catch { /* 권한 없으면 조용히 무시 */ }
-              setUploadTab("text");
+              setClipboardPrompt("__ask__"); // 클립보드 읽기 전에 팝업 먼저
             }}
           >
             텍스트 붙여넣기
@@ -194,15 +187,7 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
                 )}
                 <button
                   className="btn-paste-action"
-                  onClick={async () => {
-                    try {
-                      const text = await navigator.clipboard.readText();
-                      if (text.trim().startsWith("{")) setClipboardPrompt(text);
-                      else if (text.trim()) { setPasteText(text); setUploadErrors([]); setUploadSuccess(null); }
-                    } catch {
-                      alert("클립보드 접근 권한이 필요합니다.");
-                    }
-                  }}
+                  onClick={() => setClipboardPrompt("__ask__")}
                 >
                   클립보드
                 </button>
@@ -293,17 +278,26 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
       </div>
 
       {clipboardPrompt && (
-        <div className="modal-overlay" onClick={() => setClipboardPrompt(null)}>
+        <div className="modal-overlay" onClick={() => { setClipboardPrompt(null); setUploadTab("text"); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>클립보드에 내용이 있습니다</h3>
-            <p>붙여넣겠습니까?</p>
+            <p>클립보드에서 내용을 가져오겠습니까?</p>
             <div className="modal-actions">
-              <button className="btn-cancel" onClick={() => { setClipboardPrompt(null); setUploadTab("text"); }}>취소</button>
-              <button className="btn-confirm" onClick={() => {
-                setPasteText(clipboardPrompt);
+              <button className="btn-cancel" onClick={() => { setClipboardPrompt(null); setUploadTab("text"); }}>
+                직접 입력
+              </button>
+              <button className="btn-confirm" onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text.trim()) setPasteText(text);
+                } catch {
+                  alert("클립보드 접근 권한이 필요합니다.");
+                }
                 setClipboardPrompt(null);
                 setUploadTab("text");
-              }}>붙여넣기</button>
+              }}>
+                가져오기
+              </button>
             </div>
           </div>
         </div>
