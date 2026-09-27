@@ -116,7 +116,7 @@ Dexie DB 이름 `exam-quiz-db`. 현재 스키마 버전 **2**.
 - **자동 배포 연결됨**: `master`에 `git push` 하면 Vercel이 자동 빌드·배포. 수동 `vercel --prod` 불필요
 - Vercel 팀/프로젝트 이름 모두 `exam-quiz`
 - 로컬 도구: `gh`는 `~/.local/bin/gh`에 설치(sudo 불가 환경), `vercel` CLI는 전역 설치됨
-- 커밋/배포 전 항상 `npx tsc --noEmit` 통과 확인 (Vercel 빌드가 `tsc -b`로 타입 에러 시 실패함)
+- **커밋/배포 전 검증은 반드시 `npx tsc -b` (Vercel 빌드와 동일)**. `tsc --noEmit`는 프로젝트 참조를 느슨하게 검사해 통과하더라도 `tsc -b`에서 실패할 수 있음(예: 삼항으로 만든 `{ name: "a" | "b" }`가 discriminated union에 안 맞는 경우). 캐시로 인해 놓치는 걸 막으려면 `rm -rf node_modules/.tmp && npx tsc -b`
 
 ## 향후 작업 시 참고
 
