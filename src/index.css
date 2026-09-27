@@ -233,6 +233,33 @@ body {
   gap: 8px;
 }
 
+.paste-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.paste-toolbar-hint {
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+
+.paste-toolbar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-paste-action {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .paste-textarea {
   width: 100%;
   height: 140px;

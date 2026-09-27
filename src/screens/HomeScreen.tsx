@@ -150,7 +150,13 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
           </button>
           <button
             className={`upload-tab ${uploadTab === "text" ? "upload-tab--active" : ""}`}
-            onClick={() => { setUploadTab("text"); setUploadErrors([]); setUploadSuccess(null); }}
+            onClick={async () => {
+              setUploadTab("text"); setUploadErrors([]); setUploadSuccess(null);
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text.trim().startsWith("{")) setPasteText(text);
+              } catch { /* 권한 없으면 조용히 무시 */ }
+            }}
           >
             텍스트 붙여넣기
           </button>
@@ -171,6 +177,31 @@ export function HomeScreen({ onStartSession, onResume, hasSession, onRandomSetup
           </>
         ) : (
           <div className="paste-area">
+            <div className="paste-toolbar">
+              <span className="paste-toolbar-hint">
+                {pasteText ? `${pasteText.length.toLocaleString()}자` : "JSON 붙여넣기"}
+              </span>
+              <div className="paste-toolbar-actions">
+                {pasteText && (
+                  <button className="btn-paste-action" onClick={() => { setPasteText(""); setUploadErrors([]); setUploadSuccess(null); }}>
+                    전체 삭제
+                  </button>
+                )}
+                <button
+                  className="btn-paste-action"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text.trim()) { setPasteText(text); setUploadErrors([]); setUploadSuccess(null); }
+                    } catch {
+                      alert("클립보드 접근 권한이 필요합니다.");
+                    }
+                  }}
+                >
+                  클립보드
+                </button>
+              </div>
+            </div>
             <textarea
               className="paste-textarea"
               value={pasteText}
