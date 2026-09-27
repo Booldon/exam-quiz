@@ -45,19 +45,25 @@ function ResultItem({ gq, index }: { gq: GradedQuestion; index: number }) {
   const [open, setOpen] = useState(false);
   const q = gq.question;
 
+  // 선택지 번호(1부터)를 "N번 내용" 형태로. 이미지 선택지는 내용 대신 표시 문구
+  const choiceLabel = (n: number): string => {
+    if (q.type !== "choice") return `${n}번`;
+    const c = q.choices[n - 1];
+    if (c === undefined) return `${n}번`;
+    const text = typeof c === "string" ? c : c.text ?? (c.image ? "(이미지)" : "");
+    return text ? `${n}번 ${text}` : `${n}번`;
+  };
+
   const correctAnswerLabel =
     q.type === "choice"
-      ? q.answers.map((n) => {
-          const c = q.choices[n - 1];
-          return `${n}번${typeof c === "string" ? " " + c : ""}`;
-        }).join(", ")
+      ? q.answers.map(choiceLabel).join(", ")
       : q.answers.join(" / ");
 
   const userAnswerLabel =
     gq.userAnswer === undefined
       ? "미응답"
-      : q.type === "choice"
-      ? `${gq.userAnswer}번`
+      : q.type === "choice" && typeof gq.userAnswer === "number"
+      ? choiceLabel(gq.userAnswer)
       : String(gq.userAnswer);
 
   return (
