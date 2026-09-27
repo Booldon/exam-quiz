@@ -3,6 +3,18 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-markdown": ["react-markdown", "remark-gfm", "remark-math", "rehype-katex"],
+          "vendor-katex": ["katex"],
+          "vendor-dexie": ["dexie"],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

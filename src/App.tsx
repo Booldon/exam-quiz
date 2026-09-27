@@ -1,7 +1,185 @@
+import { useState, useEffect } from "react";
+import { db, type QuizMode, splitQuestionKey } from "./db";
+import type { SessionRecord } from "./db";
+import { questionKey } from "./schema/examSchema";
+import { HomeScreen } from "./screens/HomeScreen";
+import { RandomSetupScreen } from "./screens/RandomSetupScreen";
+import { QuizScreen } from "./screens/QuizScreen";
+import { ResultScreen } from "./screens/ResultScreen";
+import type { GradingResult } from "./lib/grading";
+import { useRegisterSW } from "virtual:pwa-register/react";
+
+type Screen =
+  | { name: "home" }
+  | { name: "random-setup" }
+  | { name: "quiz" }
+  | { name: "result"; result: GradingResult };
+
+function useDarkMode() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  return [dark, setDark] as const;
+}
+
 export default function App() {
+  const [screen, setScreen] = useState<Screen>({ name: "home" });
+  const [hasSession, setHasSession] = useState(false);
+  const [dark, setDark] = useDarkMode();
+
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
+
+  useEffect(() => {
+    db.sessions.get(1).then((s) => setHasSession(!!s));
+  }, [screen]);
+
+  async function startSession(mode: QuizMode, examKey: string) {
+    const setRecord = await db.examSets.get(examKey);
+    if (!setRecord) return;
+
+    let keys: string[];
+
+    if (mode === "exam") {
+      keys = setRecord.data.questions.map((q) => questionKey(setRecord.data, q));
+    } else {
+      // retry: only wrong or starred questions
+      const records = await db.questionRecords
+        .where("examId").equals(setRecord.examId)
+        .and((r) => r.round === setRecord.round && (r.wrongCount > 0 || r.starred))
+        .toArray();
+      keys = records.map((r) => r.key);
+      if (keys.length === 0) return;
+    }
+
+    const deadlineAt =
+      mode === "exam" && setRecord.data.timeLimitMin
+        ? Date.now() + setRecord.data.timeLimitMin * 60_000
+        : undefined;
+
+    const session: SessionRecord = {
+      id: 1,
+      mode,
+      examId: setRecord.examId,
+      round: setRecord.round,
+      questionKeys: keys,
+      answers: {},
+      currentIndex: 0,
+      startedAt: Date.now(),
+      deadlineAt,
+    };
+
+    await db.sessions.put(session);
+    setScreen({ name: "quiz" });
+  }
+
+  async function startRandom(n: number) {
+    const allSets = await db.examSets.toArray();
+    const allKeys: string[] = [];
+    for (const s of allSets) {
+      for (const q of s.data.questions) {
+        allKeys.push(questionKey(s.data, q));
+      }
+    }
+    // Fisher-Yates shuffle and take first n
+    for (let i = allKeys.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allKeys[i], allKeys[j]] = [allKeys[j], allKeys[i]];
+    }
+    const keys = allKeys.slice(0, n);
+
+    const { examId, round } = splitQuestionKey(keys[0]);
+    const session: SessionRecord = {
+      id: 1,
+      mode: "random",
+      examId,
+      round,
+      questionKeys: keys,
+      answers: {},
+      currentIndex: 0,
+      startedAt: Date.now(),
+    };
+
+    await db.sessions.put(session);
+    setScreen({ name: "quiz" });
+  }
+
+  async function startRetryFromResult(result: GradingResult) {
+    const wrongKeys = result.questions.filter((q) => !q.isCorrect).map((q) => q.key);
+    if (wrongKeys.length === 0) {
+      alert("오답이 없습니다!");
+      setScreen({ name: "home" });
+      return;
+    }
+    const { examId, round } = splitQuestionKey(wrongKeys[0]);
+    const session: SessionRecord = {
+      id: 1,
+      mode: "retry",
+      examId,
+      round,
+      questionKeys: wrongKeys,
+      answers: {},
+      currentIndex: 0,
+      startedAt: Date.now(),
+    };
+    await db.sessions.put(session);
+    setScreen({ name: "quiz" });
+  }
+
   return (
-    <div>
-      <h1>기출 풀이</h1>
+    <div className="app">
+      <button
+        className="theme-toggle"
+        onClick={() => setDark((d) => !d)}
+        title="다크/라이트 모드"
+      >
+        {dark ? "☀" : "☾"}
+      </button>
+
+      {needRefresh && (
+        <div className="pwa-update">
+          앱 업데이트가 있습니다.{" "}
+          <button onClick={() => updateServiceWorker(true)}>지금 업데이트</button>
+        </div>
+      )}
+
+      {screen.name === "home" && (
+        <HomeScreen
+          hasSession={hasSession}
+          onResume={() => setScreen({ name: "quiz" })}
+          onStartSession={startSession}
+          onRandomSetup={() => setScreen({ name: "random-setup" })}
+        />
+      )}
+
+      {screen.name === "random-setup" && (
+        <RandomSetupScreen
+          onStart={startRandom}
+          onBack={() => setScreen({ name: "home" })}
+        />
+      )}
+
+      {screen.name === "quiz" && (
+        <QuizScreen
+          onResult={(r) => setScreen({ name: "result", result: r })}
+          onHome={() => setScreen({ name: "home" })}
+        />
+      )}
+
+      {screen.name === "result" && (
+        <ResultScreen
+          result={screen.result}
+          onHome={() => setScreen({ name: "home" })}
+          onRetry={() => startRetryFromResult(screen.result)}
+        />
+      )}
     </div>
   );
 }
